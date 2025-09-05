@@ -19,7 +19,6 @@ End-to-end workflow for:
 * [3) Evaluate & Pick Thresholds (τ)](#3-evaluate--pick-thresholds-τ)
 * [4) Run the Pipeline (Folder / Camera)](#4-run-the-pipeline-folder--camera)
 * [“Must Look” Facts](#must-look)
-* [Speed & Hygiene Tips](#speed--hygiene-tips)
 
 ---
 
@@ -176,7 +175,7 @@ python pipeline.py \
 
 ---
 
-## Speed & Hygiene Tips
+## Speed Tips
 
 * Use `--min-face-size 96–128` to skip tiny faces (biggest speed win).
 * Keep `num_jitters=1` and `models="small"` for encodings.
@@ -210,9 +209,117 @@ python pipeline.py `
   --log-comparisons `
   --log-dir logs
 ```
-
 ---
 
-If you want, I can also drop in a **Quick Start** badge box and a **scripts/** folder (Windows/Unix wrappers) so users can run everything with one command per step.
+## Training: CNN (mask detector) and SVM (identity)
 
+This repo supports two trainable components:
 
+* **CNN mask detector** → outputs `P(masked)` per face (used by the routing logic).
+* **SVM identity classifier (optional)** → predicts `person_id` from features (128-D encodings or 23-pt landmarks).
+
+**Notebooks:**
+
+* `notebooks/cnn_training.ipynb`
+* `notebooks/train_svm.ipynb`
+
+## 0) Environment
+
+```bash
+python -m venv .venv
+# or: conda create -n eagleeye python=3.10 -y && conda activate eagleeye
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+
+pip install --upgrade pip
+pip install -r requirements.txt
+# If you don't have it already:
+# pip install opencv-python dlib face_recognition numpy pandas scikit-learn tensorflow jupyter
+```
+
+## 1) Data layout
+
+### 1.1 Mask detector (CNN)
+
+Binary classification: **masked** vs **nomask**.
+
+```
+data/mask_train/
+  masked/
+    img_001.jpg
+    ...
+  nomask/
+    img_101.jpg
+    ...
+data/mask_val/
+  masked/
+  nomask/
+```
+
+### 1.2 SVM identity (optional)
+
+Multiclass classification: `person_id` as the class label. Use either:
+
+* **Encodings branch** (recommended for no-mask): 128-D vectors from `face_recognition`.
+* **Landmarks branch** (works under masks): flattened, normalized 23×2 points → **46-D** vector.
+
+## 2) Train the CNN mask detector
+
+Open the notebook and run all cells:
+
+```bash
+jupyter notebook notebooks/cnn_training.ipynb
+```
+
+**The notebook:**
+
+* Builds a small CNN.
+* Trains on `data/mask_train/` with validation on `data/mask_val/`.
+* Exports the model to `models/cnn_model.h5`.  *(If you prefer `models/mask_detector.h5`, just rename and use that in the CLI.)*
+
+**Verify before using in the pipeline:**
+
+* Final validation accuracy / F1.
+* Confusion matrix (balanced precision/recall between masked and nomask).
+* Saved file exists: `models/cnn_model.h5`.
+
+**Use in the pipeline:**
+
+```bash
+python pipeline.py \
+  --shape-predictor models/shape_predictor_68_face_landmarks.dat \
+  --yunet-model models/face_detection_yunet_2023mar.onnx \
+  --mask-model models/cnn_model.h5 \
+  --db Eagle_Eye_Detection_Pipeline.db \
+  --eval-run-id <your_run_id> \
+  --images /path/to/images \
+  --mask-class-index 1 \
+  --mask-th-low 0.25 --mask-th-high 0.75 --mask-try-both \
+  --log-dir logs
+```
+
+> `--mask-class-index` must point to the **“Masked”** class index from your CNN.
+
+## 3) Reproducibility
+
+```python
+import numpy as np, random, tensorflow as tf
+np.random.seed(42); random.seed(42); tf.random.set_seed(42)
+```
+
+* Log versions: `tensorflow.__version__`, `opencv.__version__`, `sklearn.__version__`.
+* Save training configs (hyper-params, class indices) to `models/<modelname>.json`.
+
+## 4) Suggested hyper-parameters (starting points)
+
+**CNN**
+
+* Optimizer: Adam (lr=1e-3 → cosine decay / ReduceLROnPlateau)
+* Batch size: 32
+* Epochs: 15–30 (early stopping on val loss)
+* Augmentation: random horizontal flip, color jitter, mild blur; avoid heavy occlusions that break labels
+* Input size: match your model (e.g., 128×128)
+
+**SVM**
+
+* Encodings: `SVC(C=10, gamma='scale', kernel='rbf', probability=True)`
+* Landmarks: `SVC(C=5, gamma='scale', kernel='rbf', probability=True)`
