@@ -1,11 +1,11 @@
-# Occlusion-Aware Face Recognition Pipeline
+# Occlusion-Aware Face Recognition System
 
 End-to-end workflow for:
 
-* building a **bio database**,
-* extracting **gallery features** (23-point landmarks + 128-D encodings),
-* evaluating thresholds **τ** for 1:1 and 1\:N,
-* running the **pipeline** over folders or a **live camera**, with full logging.
+* Building a **bio database**,
+* Extracting **gallery features** (23-point landmarks + 128-D encodings),
+* Evaluating thresholds **τ** for 1:1 and 1\:N,
+* Running the **pipeline** over folders or a **live camera**, with full logging.
 
 ---
 
@@ -96,7 +96,7 @@ python build_facial_data.py \
 
 ## 3) Evaluate & Pick Thresholds (τ)
 
-### 1:1 operating point (typical)
+### 1:1 Operating Point (typical)
 
 ```bash
 python build_pairs_and_metrics.py \
@@ -109,7 +109,7 @@ python build_pairs_and_metrics.py \
 
 > **Note** the printed `run_id` (e.g., `run_id=7`).
 
-### 1\:N requirement (e.g., FPIR ≤ 1% with N=5000)
+### 1\:N Requirement (e.g., FPIR ≤ 1% with N=5000)
 
 ```bash
 python build_pairs_and_metrics.py \
@@ -236,9 +236,9 @@ pip install -r requirements.txt
 # pip install opencv-python dlib face_recognition numpy pandas scikit-learn tensorflow jupyter
 ```
 
-## 1) Data layout
+## 1) Data Layout
 
-### 1.1 Mask detector (CNN)
+### 1.1 Mask Detector (CNN)
 
 Binary classification: **masked** vs **nomask**.
 
@@ -255,14 +255,14 @@ data/mask_val/
   nomask/
 ```
 
-### 1.2 SVM identity (optional)
+### 1.2 SVM Identity (optional)
 
 Multiclass classification: `person_id` as the class label. Use either:
 
 * **Encodings branch** (recommended for no-mask): 128-D vectors from `face_recognition`.
 * **Landmarks branch** (works under masks): flattened, normalized 23×2 points → **46-D** vector.
 
-## 2) Train the CNN mask detector
+## 2) Train the CNN Mask Detector
 
 Open the notebook and run all cells:
 
@@ -309,7 +309,7 @@ np.random.seed(42); random.seed(42); tf.random.set_seed(42)
 * Log versions: `tensorflow.__version__`, `opencv.__version__`, `sklearn.__version__`.
 * Save training configs (hyper-params, class indices) to `models/<modelname>.json`.
 
-## 4) Suggested hyper-parameters (starting points)
+## 4) Suggested Hyper-Parameters (starting points)
 
 **CNN**
 
@@ -323,3 +323,4 @@ np.random.seed(42); random.seed(42); tf.random.set_seed(42)
 
 * Encodings: `SVC(C=10, gamma='scale', kernel='rbf', probability=True)`
 * Landmarks: `SVC(C=5, gamma='scale', kernel='rbf', probability=True)`
+
